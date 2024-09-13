@@ -1,0 +1,21 @@
+how to add a new row to a df in panda?EditTo add a new row to a DataFrame in pandas, you have several options. Here are two common methods:
+
+
+==
+Using loc[] with a new index:
+import pandas as pd
+
+# Assuming you have a DataFrame named 'df'
+new_row = {'column1': value1, 'column2': value2, ...}
+df.loc[len(df)] = new_row
+
+==
+Using concat():
+
+import pandas as pd
+
+# Assuming you have a DataFrame named 'df'
+new_row = pd.DataFrame({'column1': [value1], 'column2': [value2], ...})
+df = pd.concat([df, new_row], ignore_index=True)
+The loc[] method is generally faster for adding a single row, while concat() can be more efficient for adding multiple rows at once.
+
