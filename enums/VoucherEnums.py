@@ -25,6 +25,7 @@ class InputVoucherColumns(MarkerInterface):
     LEDGER_NAME = FinalVoucherColumns.LEDGER_NAME.value
     LEDGER_AMOUNT = FinalVoucherColumns.LEDGER_AMOUNT.value
     LEDGER_AMOUNT_DR_CR = FinalVoucherColumns.LEDGER_AMOUNT_DR_CR.value
+    QUANTITY = FinalVoucherColumns.QUANTITY.value
 
 
 class SalesRate(MarkerInterface):
@@ -42,12 +43,12 @@ class PurchaseRate(MarkerInterface):
 
 
 class TaxRate(MarkerInterface):
-    CGST_14_PERCENT = "14%CGST"
-    SGST_14_PERCENT = "14%SGST"
-    CGST_9_PERCENT = "9%CGST"
-    SGST_9_PERCENT = "9%SGST"
-    CGST_6_PERCENT = "6%CGST"
-    SGST_6_PERCENT = "6%SGST"
+    CGST_28_PERCENT = "14%CGST"
+    SGST_28_PERCENT = "14%SGST"
+    CGST_18_PERCENT = "9%CGST"
+    SGST_18_PERCENT = "9%SGST"
+    CGST_12_PERCENT = "6%CGST"
+    SGST_12_PERCENT = "6%SGST"
     CGST_5_PERCENT = "2.5%CGST"
     SGST_5_PERCENT = "2.5%SGST"
 

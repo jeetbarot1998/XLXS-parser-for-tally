@@ -1,18 +1,23 @@
 import pandas as pd
 
 from enums.VoucherEnums import FinalVoucherColumns, SalesRate, PurchaseRate, MarkerInterface
+from enums.purchase_sale_enums import string_enum_mapping
 from utils import create_header_index_dict, get_field_data_by_header_name, get_row_as_dict, filter_dict
 from validateXLSX import validate_excel_headers
+from typing import Literal
 
 
 class ProcessXL:
 
-    def __init__(self, voucher_type: str, xlsx_path: str):
-        self.voucher_type: str = voucher_type # purchase or sales only
+    def __init__(self, voucher_type: Literal["purchase", "sales"], xlsx_path: str):
+        self.voucher_type = voucher_type  # purchase or sales only
         self.voucher_type_enum: MarkerInterface = self.get_voucher_enum(voucher_type)
         self.df = self.load_xlsx_to_df(xlsx_path)
-        self.final_voucher_df = pd.DataFrame(columns=FinalVoucherColumns.get_all_string_values())
         self.header_index_dict = create_header_index_dict(self.df)
+        self.validate_xlsx()
+        # TODO : remove parenthesis and make it mm-dd-yyyy
+        # self.df['Voucher Date'] = self.df['Voucher Date'].apply(self.convert_date)
+        self.final_voucher_df = pd.DataFrame(columns=FinalVoucherColumns.get_all_string_values())
 
     def get_voucher_enum(self, voucher_type_str) -> MarkerInterface:
         voucher_type = {
@@ -49,12 +54,17 @@ class ProcessXL:
             if each_col in self.header_index_dict.keys():
                 self.rounding_column(each_col, 2)
 
+    def convert_date(self, date_str):
+        # Remove any single quotes
+        date_str = date_str.strip("'")
+        date = pd.to_datetime(date_str, format='%d-%m-%Y')
+        # Convert to mm-dd-yyyy format
+        return date.strftime('%m-%d-%Y')
+
     def process_rows(self):
-        end_counter_new_df = len(self.final_voucher_df)
         self.convert_columns_to_numeric()
         for index, row in self.df.iterrows():
             print(f"\nProcessing row {index + 1}:")
-
 
             # voucher_date = get_field_data_by_header_name(row_data=row,
             #                                            headers=header_index_dict,
@@ -62,22 +72,34 @@ class ProcessXL:
 
             row = get_row_as_dict(row, self.header_index_dict)
 
-            # Populate first row for an entry
-            self.populate_first_entry(row, end_counter_new_df)
-            end_counter_new_df += 1
+            for each_voucher_category in self.voucher_type_enum.get_all_string_values():
+                if row.get(each_voucher_category) not in [0, 0.0, 0.00, "0"]:
+                    self.final_voucher_df = pd.concat([self.final_voucher_df, self.make_entry_for_category(row, each_voucher_category)], ignore_index=True)
+                    # print(self.final_voucher_df)
+                else:
+                    continue
 
-            # TODO:
-            #  1.Check for each type of tax, and make 3 rows for each tax type
-            #  2. Make a function and pass each tax type and return 3 rows for each type
-            #  3. At the end of checking for each tax type, concat all the rows to the new df
-            #  4. If possible integrate it with populate first row method.
+            # print(self.final_voucher_df)
+        self.final_voucher_df.to_excel('output.xlsx', index=False)
 
+    def make_entry_for_category(self, row, voucher_category):
+        # getting all the keys for which we have to search in the row
+        keys_to_populate = string_enum_mapping.get(voucher_category).get_all_string_values()
+        list_of_dict = []
+        # Append response of first row for this entry in the list
+        list_of_dict.append(self.populate_first_entry(row))
+        for keys in keys_to_populate:
+            dic = {}
+            dic[FinalVoucherColumns.LEDGER_NAME.value] = keys
+            dic[FinalVoucherColumns.LEDGER_AMOUNT.value] = row.get(keys)
+            dic[FinalVoucherColumns.LEDGER_AMOUNT_DR_CR.value] = "CR" if self.voucher_type == "purchase" else "DR"
+            list_of_dict.append(dic)
+        return pd.DataFrame(list_of_dict)
 
-            print(self.final_voucher_df)
-
-    def populate_first_entry(self, row, end_counter_new_df):
+    def populate_first_entry(self, row):
         first_row_for_entry = filter_dict(row, FinalVoucherColumns.get_all_string_values())
-        self.final_voucher_df.loc[end_counter_new_df] = first_row_for_entry
-
+        first_row_for_entry[FinalVoucherColumns.LEDGER_NAME.value] = "Cash Sales and Purchase"
+        first_row_for_entry[FinalVoucherColumns.LEDGER_AMOUNT_DR_CR.value] = "CR" if self.voucher_type == "sales" else "DR"
+        return first_row_for_entry
 
 ProcessXL("purchase", "../test.xlsx").process_rows()
