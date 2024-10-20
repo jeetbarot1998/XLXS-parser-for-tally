@@ -55,6 +55,8 @@ class ProcessXL:
                 self.rounding_column(each_col, 2)
 
     def convert_date(self, date_str):
+        """ Convert string "dd-mm-yyyy" or date dd-mm-yyyy to TYPE date in XLSX
+        format dd/mm/yyyy """
         # Remove any single quotes
         date_str = date_str.strip("'")
         date = pd.to_datetime(date_str, format='%d-%m-%Y')
@@ -66,39 +68,71 @@ class ProcessXL:
         for index, row in self.df.iterrows():
             print(f"\nProcessing row {index + 1}:")
 
-            # voucher_date = get_field_data_by_header_name(row_data=row,
-            #                                            headers=header_index_dict,
-            #                                            search_text=FinalVoucherColumns.VOUCHER_DATE.value)
-
             row = get_row_as_dict(row, self.header_index_dict)
 
+            # Populate first row.
+            first_row = self.append_first_row(row)
+
+            row_sum = 0
             for each_voucher_category in self.voucher_type_enum.get_all_string_values():
+                # TODO: Handle exception if the key does not exist int the dict => Use default dict \
+                #  in line 73.
+
                 if row.get(each_voucher_category) not in [0, 0.0, 0.00, "0"]:
-                    self.final_voucher_df = pd.concat([self.final_voucher_df, self.make_entry_for_category(row, each_voucher_category)], ignore_index=True)
-                    # print(self.final_voucher_df)
+                    rows_to_insert, each_voucher_sum = self.make_entry_for_category(row, each_voucher_category)
+                    self.final_voucher_df = pd.concat([self.final_voucher_df,
+                                                       rows_to_insert],
+                                                      ignore_index=True)
+                    row_sum += each_voucher_sum
                 else:
                     continue
 
+            rounded_off_by = first_row.get(FinalVoucherColumns.LEDGER_AMOUNT.value) - row_sum
+            self.append_rounded_off(rounded_off_by)
+
             # print(self.final_voucher_df)
         self.final_voucher_df.to_excel('output.xlsx', index=False)
+
+    def append_rounded_off(self, difference):
+        rounded_off_dic = {}
+        rounded_off_dic[FinalVoucherColumns.LEDGER_NAME.value] = FinalVoucherColumns.ROUNDED_OFF.value
+        rounded_off_dic[FinalVoucherColumns.LEDGER_AMOUNT.value] = difference
+        rounded_off_dic[FinalVoucherColumns.LEDGER_AMOUNT_DR_CR.value] = \
+            self.get_type_cr_dr()
+        self.final_voucher_df = pd.concat([self.final_voucher_df,
+                                           pd.DataFrame([rounded_off_dic])],
+                                          ignore_index=True)
+
+    def get_type_cr_dr(self):
+        return "CR" if self.voucher_type == "purchase" else "DR"
+
+    def append_first_row(self, row):
+        first_row = self.populate_first_entry(row)
+        first_row[FinalVoucherColumns.LEDGER_AMOUNT.value] = row.get(FinalVoucherColumns.LEDGER_AMOUNT.value)
+        self.final_voucher_df = pd.concat([self.final_voucher_df,
+                                           pd.DataFrame([first_row])],
+                                          ignore_index=True)
+        return first_row
 
     def make_entry_for_category(self, row, voucher_category):
         # getting all the keys for which we have to search in the row
         keys_to_populate = string_enum_mapping.get(voucher_category).get_all_string_values()
         list_of_dict = []
-        # Append response of first row for this entry in the list
-        list_of_dict.append(self.populate_first_entry(row))
+        sum = 0
+
         for keys in keys_to_populate:
             dic = {}
             dic[FinalVoucherColumns.LEDGER_NAME.value] = keys
-            dic[FinalVoucherColumns.LEDGER_AMOUNT.value] = row.get(keys)
-            dic[FinalVoucherColumns.LEDGER_AMOUNT_DR_CR.value] = "CR" if self.voucher_type == "purchase" else "DR"
+            ledger_amount = row.get(keys)
+            dic[FinalVoucherColumns.LEDGER_AMOUNT.value] = ledger_amount
+            sum += ledger_amount
+            dic[FinalVoucherColumns.LEDGER_AMOUNT_DR_CR.value] = self.get_type_cr_dr()
             list_of_dict.append(dic)
-        return pd.DataFrame(list_of_dict)
+        return pd.DataFrame(list_of_dict), sum
 
     def populate_first_entry(self, row):
         first_row_for_entry = filter_dict(row, FinalVoucherColumns.get_all_string_values())
-        first_row_for_entry[FinalVoucherColumns.LEDGER_NAME.value] = "Cash Sales and Purchase"
+        first_row_for_entry[FinalVoucherColumns.LEDGER_NAME.value] = row.get(FinalVoucherColumns.LEDGER_NAME.value)
         first_row_for_entry[FinalVoucherColumns.LEDGER_AMOUNT_DR_CR.value] = "CR" if self.voucher_type == "sales" else "DR"
         return first_row_for_entry
 

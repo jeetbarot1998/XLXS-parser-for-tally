@@ -16,6 +16,7 @@ class FinalVoucherColumns(MarkerInterface):
     LEDGER_AMOUNT = "Ledger Amount"
     LEDGER_AMOUNT_DR_CR = "Ledger Amount Dr/Cr"
     QUANTITY = "Quantity"
+    ROUNDED_OFF = "Rounded off"
 
 
 class InputVoucherColumns(MarkerInterface):

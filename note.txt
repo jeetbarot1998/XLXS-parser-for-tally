@@ -19,3 +19,8 @@ new_row = pd.DataFrame({'column1': [value1], 'column2': [value2], ...})
 df = pd.concat([df, new_row], ignore_index=True)
 The loc[] method is generally faster for adding a single row, while concat() can be more efficient for adding multiple rows at once.
 
+
+
+
+1. Cash sales and purchase is replaced with "Ledger Name" in each row
+2.
